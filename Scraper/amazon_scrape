@@ -1,0 +1,69 @@
+from bs4 import BeautifulSoup
+from numpy import true_divide
+from selenium import webdriver
+
+# Initiate driver
+driver = webdriver.Edge()
+
+# Function for search URL, replace {} with search, replace space with + to conform.
+def get_searchUrl(searchWords):
+    """Generate URL from search term"""
+    template = 'https://www.amazon.se/s?k={}&ref=nb_sb_noss_1'
+    searchWords = searchWords.replace(' ', '+')
+    return template.format(searchWords)
+
+# Search request
+searchRequest = get_searchUrl('gaming chair')
+driver.get(searchRequest)
+
+# Declare soup
+soup = BeautifulSoup(driver.page_source, 'html.parser')
+
+# Find and get URL of fulfilled by Amazon.
+fulfilled = soup.find('a', href=lambda href: href and 'fulfilled' in href).get('href')
+print(fulfilled)
+
+# Parse all search results with div tag stored as list in results
+results = soup.find_all('div', {'data-component-type': 's-search-result'})
+
+# Transfer result on index to item
+item = results[0]
+
+def extractProductData(item):
+    '''Extract and return data from a single product'''
+    
+    # Find product title and URL
+    aTag = item.h2.a
+    productTitle = aTag.text.strip()
+    url = searchRequest + aTag.get('href')
+    
+    try:
+        # Find price
+        price = item.find('span', 'a-price').find('span', 'a-offscreen').text
+    except AttributeError:
+        return
+    
+    try:
+        # Find rating and amount of reviews, if review or rating is null set null
+        rating = item.i.text
+        reviewCount = item.find('span', 'a-size-base s-underline-text').text
+    except AttributeError:
+        rating = ''
+        reviewCount = ''
+    
+    # Create tuple containing productData
+    productData = (productTitle, price, rating, reviewCount, url)
+    
+    return productData
+
+products = []
+results = soup.find_all('div', {'data-component-type': 's-search-result'})
+
+# If product has data append to products list
+for item in results:
+    product = extractProductData(item)
+    if(product):
+        products.append(product)
+
+for i in products:
+    print(i[1])
